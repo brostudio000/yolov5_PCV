@@ -359,7 +359,7 @@ class LoadStreams:
                     LOGGER.warning('WARNING: Video stream unresponsive, please check your IP camera connection.')
                     self.imgs[i] = np.zeros_like(self.imgs[i])
                     cap.open(stream)  # re-open stream if signal was lost
-            time.sleep(1 / self.fps[i])  # wait time
+            time.sleep(0.0)  # wait time
 
     def __iter__(self):
         self.count = -1
@@ -449,10 +449,10 @@ class LoadImagesAndLabels(Dataset):
         cache_path = (p if p.is_file() else Path(self.label_files[0]).parent).with_suffix('.cache')
         try:
             cache, exists = np.load(cache_path, allow_pickle=True).item(), True  # load dict
-            assert cache['version'] == self.cache_version  # same version
-            assert cache['hash'] == get_hash(self.label_files + self.im_files)  # same hash
+            assert cache['version'] == self.cache_version  # matches current version
+            assert cache['hash'] == get_hash(self.label_files + self.im_files)  # identical hash
         except Exception:
-            cache, exists = self.cache_labels(cache_path, prefix), False  # cache
+            cache, exists = self.cache_labels(cache_path, prefix), False  # run cache ops
 
         # Display cache
         nf, nm, ne, nc, n = cache.pop('results')  # found, missing, empty, corrupt, total
@@ -1027,10 +1027,14 @@ def dataset_stats(path='coco128.yaml', autodownload=False, verbose=False, profil
             cv2.imwrite(str(f_new), im)
 
     zipped, data_dir, yaml_path = _unzip(Path(path))
-    with open(check_yaml(yaml_path), errors='ignore') as f:
-        data = yaml.safe_load(f)  # data dict
-        if zipped:
-            data['path'] = data_dir  # TODO: should this be dir.resolve()?
+    try:
+        with open(check_yaml(yaml_path), errors='ignore') as f:
+            data = yaml.safe_load(f)  # data dict
+            if zipped:
+                data['path'] = data_dir  # TODO: should this be dir.resolve()?`
+    except Exception:
+        raise Exception("error/HUB/dataset_stats/yaml_load")
+
     check_dataset(data, autodownload)  # download dataset if missing
     hub_dir = Path(data['path'] + ('-hub' if hub else ''))
     stats = {'nc': data['nc'], 'names': data['names']}  # statistics dictionary
